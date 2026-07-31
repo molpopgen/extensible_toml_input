@@ -4,30 +4,15 @@ use serde::Serialize;
 trait TraitA {}
 trait TraitB {}
 
-pub struct ResolvedType<A: TraitA, B: TraitB> {
-    a: A,
-    b: B,
+pub struct ResolvedType {
+    a: Box<dyn TraitA>,
+    b: Box<dyn TraitB>,
 }
 
-fn default_graph() -> ResolvedType<isA, isB> {
+fn default_graph() -> ResolvedType {
     ResolvedType {
-        a: isA { x: 0, y: 0 },
-        b: isB { i: -1 },
-    }
-}
-
-// NOTE: struct update syntax is not
-// possible b/c the generic types change!
-impl<A, B> ResolvedType<A, B>
-where
-    A: TraitA,
-    B: TraitB,
-{
-    fn set_a<NewA: TraitA>(self, newa: NewA) -> ResolvedType<NewA, B> {
-        ResolvedType { a: newa, b: self.b }
-    }
-    fn set_b<NewB: TraitB>(self, newb: NewB) -> ResolvedType<A, NewB> {
-        ResolvedType { a: self.a, b: newb }
+        a: Box::new(isA { x: 0, y: 0 }),
+        b: Box::new(isB { i: -1 }),
     }
 }
 
@@ -66,6 +51,15 @@ macro_rules! make_allowed_a {
             isA(isA),
             isAlsoA(isAlsoA),
         }
+
+        impl AllowedA {
+            fn into_boxed(self) -> Box<dyn TraitA> {
+                match self {
+                    Self::isA(a) => Box::new(a),
+                    Self::isAlsoA(a) => Box::new(a)
+                }
+            }
+        }
     };
     ($($tag:tt : $N:ty)+) => {
         #[derive(Deserialize)]
@@ -73,6 +67,15 @@ macro_rules! make_allowed_a {
             isA(isA),
             isAlsoA(isAlsoA),
             $($tag($N),)+
+        }
+        impl AllowedA {
+            fn into_boxed(self) -> Box<dyn TraitA> {
+                match self {
+                    Self::isA(a) => Box::new(a),
+                    Self::isAlsoA(a) => Box::new(a),
+                    $(Self::$tag(a) => Box::new(a)),+
+                }
+            }
         }
     };
 }
@@ -83,12 +86,34 @@ enum AllowedB {
     isAlsoB(isAlsoB),
 }
 
+impl AllowedB {
+    fn into_boxed(self) -> Box<dyn TraitB> {
+        match self {
+            Self::isB(b) => Box::new(b),
+            Self::isAlsoB(b) => Box::new(b),
+        }
+    }
+}
+
 macro_rules! make_input_graph {
     () => {
         #[derive(Deserialize)]
         struct InputType {
             a: Option<AllowedA>,
             b: Option<AllowedB>,
+        }
+        impl From<InputType> for ResolvedType {
+            fn from(value: InputType) -> ResolvedType {
+                let a = match value.a {
+                    Some(a) => a.into_boxed(),
+                    None => Box::new(isA::default()),
+                };
+                let b = match value.b {
+                    Some(b) => b.into_boxed(),
+                    None => Box::new(isB::default()),
+                };
+                ResolvedType { a, b }
+            }
         }
     };
 }
@@ -133,7 +158,7 @@ fn test_extended_toml() {
     assert!(i.a.is_some());
     assert!(i.b.is_none());
 
-    match i.a {
+    match &i.a {
         Some(a) => match a {
             AllowedA::isA(_) => panic!("wrong variant"),
             AllowedA::isAlsoA(_) => panic!("wrong variant"),
@@ -143,6 +168,7 @@ fn test_extended_toml() {
         },
         None => panic!("expected Some(...)"),
     }
+    let _ = ResolvedType::from(i);
 }
 
 #[test]
@@ -169,7 +195,7 @@ fn test_doubly_extended_toml() {
     assert!(i.a.is_some());
     assert!(i.b.is_none());
 
-    match i.a {
+    match &i.a {
         Some(a) => match a {
             AllowedA::isA(_) => panic!("wrong variant"),
             AllowedA::isAlsoA(_) => panic!("wrong variant"),
@@ -182,4 +208,5 @@ fn test_doubly_extended_toml() {
         },
         None => panic!("expected Some(...)"),
     }
+    let _ = ResolvedType::from(i);
 }
