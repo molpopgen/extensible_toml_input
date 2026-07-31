@@ -67,12 +67,13 @@ macro_rules! make_allowed_a {
             isAlsoA(isAlsoA),
         }
     };
-    ($tag:tt , $N:ident) => {
+    //($tag:tt , $N:ident) => {
+    ($($tag:tt : $N:ty)+) => {
         #[derive(Deserialize)]
         enum AllowedA {
             isA(isA),
             isAlsoA(isAlsoA),
-            $tag($N),
+            $($tag($N),)+
         }
     };
 }
@@ -123,7 +124,7 @@ fn test_extended_toml() {
     }
     impl TraitA for MyA {}
 
-    make_allowed_a!(MyA, MyA);
+    make_allowed_a!(MyA:MyA);
     make_input_graph!();
     let toml = r#"
     [a.MyA]
@@ -139,6 +140,45 @@ fn test_extended_toml() {
             AllowedA::isAlsoA(_) => panic!("wrong variant"),
             AllowedA::MyA(a) => {
                 assert_eq!(a.data, "foobar")
+            }
+        },
+        None => panic!("expected Some(...)"),
+    }
+}
+
+#[test]
+fn test_doubly_extended_toml() {
+    #[derive(Deserialize)]
+    struct MyA {
+        data: String,
+    }
+    impl TraitA for MyA {}
+
+    #[derive(Deserialize)]
+    struct MyOtherA {
+        datum: f64,
+    }
+    impl TraitA for MyOtherA {}
+
+    make_allowed_a!(MyA:MyA MyOtherA:MyOtherA);
+    make_input_graph!();
+    let toml = r#"
+    [a.MyOtherA]
+    datum = nan
+    "#;
+    let i: InputGraph = toml::from_str(toml).unwrap();
+    assert!(i.a.is_some());
+    assert!(i.b.is_none());
+
+    match i.a {
+        Some(a) => match a {
+            AllowedA::isA(_) => panic!("wrong variant"),
+            AllowedA::isAlsoA(_) => panic!("wrong variant"),
+            AllowedA::MyA(_) => {
+                panic!("wrong variant")
+            }
+            AllowedA::MyOtherA(a) => {
+                assert!(a.datum.is_nan())
             }
         },
         None => panic!("expected Some(...)"),
