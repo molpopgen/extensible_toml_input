@@ -28,10 +28,6 @@ pub struct GenericInputType<A: TraitA, B: TraitB> {
     b: Option<B>,
 }
 
-#[repr(transparent)]
-#[derive(Deserialize)]
-pub struct GenericResolvedTypeWithDefaults<A: TraitA + Default, B: TraitB + Default>(GenericResolvedType<A,B>);
-
 impl<A, B> GenericResolvedType<A, B>
 where
     A: TraitA,
