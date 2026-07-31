@@ -9,6 +9,33 @@ pub struct ResolvedType {
     b: Box<dyn TraitB>,
 }
 
+#[derive(Deserialize)]
+pub struct GenericResolvedType<A: TraitA, B: TraitB> {
+    a: A,
+    b: B,
+}
+
+fn default_generic_graph() -> GenericResolvedType<isA, isB> {
+    GenericResolvedType {
+        a: isA::default(),
+        b: isB::default(),
+    }
+}
+
+impl<A, B> GenericResolvedType<A, B>
+where
+    A: TraitA,
+    B: TraitB,
+{
+    fn set_a<NA: TraitA>(self, a: NA) -> GenericResolvedType<NA, B> {
+        GenericResolvedType { a, b: self.b }
+    }
+
+    fn set_b<NB: TraitB>(self, b: NB) -> GenericResolvedType<A, NB> {
+        GenericResolvedType { a: self.a, b }
+    }
+}
+
 fn default_graph() -> ResolvedType {
     ResolvedType {
         a: Box::new(isA { x: 0, y: 0 }),
@@ -208,5 +235,18 @@ fn test_doubly_extended_toml() {
         },
         None => panic!("expected Some(...)"),
     }
-    let _ = ResolvedType::from(i);
+    let g = ResolvedType::from(i);
+    let v = vec![1, 2, 3];
+}
+
+#[test]
+fn test_generic_graph() {
+    let toml = r"
+    [a]
+    x=1
+    y=2
+    [b]
+    i=-1
+    ";
+    let g: GenericResolvedType<isA, isB> = toml::from_str(toml).unwrap();
 }
