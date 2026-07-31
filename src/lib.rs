@@ -67,7 +67,6 @@ macro_rules! make_allowed_a {
             isAlsoA(isAlsoA),
         }
     };
-    //($tag:tt , $N:ident) => {
     ($($tag:tt : $N:ty)+) => {
         #[derive(Deserialize)]
         enum AllowedA {
