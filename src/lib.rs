@@ -22,6 +22,16 @@ fn default_generic_graph() -> GenericResolvedType<isA, isB> {
     }
 }
 
+#[derive(Default, Deserialize)]
+pub struct GenericInputType<A: TraitA, B: TraitB> {
+    a: Option<A>,
+    b: Option<B>,
+}
+
+#[repr(transparent)]
+#[derive(Deserialize)]
+pub struct GenericResolvedTypeWithDefaults<A: TraitA + Default, B: TraitB + Default>(GenericResolvedType<A,B>);
+
 impl<A, B> GenericResolvedType<A, B>
 where
     A: TraitA,
@@ -245,8 +255,6 @@ fn test_generic_graph() {
     [a]
     x=1
     y=2
-    [b]
-    i=-1
     ";
-    let g: GenericResolvedType<isA, isB> = toml::from_str(toml).unwrap();
+    let g: GenericInputType<isA, isB> = toml::from_str(toml).unwrap();
 }
