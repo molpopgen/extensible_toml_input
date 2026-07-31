@@ -4,13 +4,13 @@ use serde::Serialize;
 trait TraitA {}
 trait TraitB {}
 
-pub struct Graph<A: TraitA, B: TraitB> {
+pub struct ResolvedType<A: TraitA, B: TraitB> {
     a: A,
     b: B,
 }
 
-fn default_graph() -> Graph<isA, isB> {
-    Graph {
+fn default_graph() -> ResolvedType<isA, isB> {
+    ResolvedType {
         a: isA { x: 0, y: 0 },
         b: isB { i: -1 },
     }
@@ -18,16 +18,16 @@ fn default_graph() -> Graph<isA, isB> {
 
 // NOTE: struct update syntax is not
 // possible b/c the generic types change!
-impl<A, B> Graph<A, B>
+impl<A, B> ResolvedType<A, B>
 where
     A: TraitA,
     B: TraitB,
 {
-    fn set_a<NewA: TraitA>(self, newa: NewA) -> Graph<NewA, B> {
-        Graph { a: newa, b: self.b }
+    fn set_a<NewA: TraitA>(self, newa: NewA) -> ResolvedType<NewA, B> {
+        ResolvedType { a: newa, b: self.b }
     }
-    fn set_b<NewB: TraitB>(self, newb: NewB) -> Graph<A, NewB> {
-        Graph { a: self.a, b: newb }
+    fn set_b<NewB: TraitB>(self, newb: NewB) -> ResolvedType<A, NewB> {
+        ResolvedType { a: self.a, b: newb }
     }
 }
 
@@ -86,7 +86,7 @@ enum AllowedB {
 macro_rules! make_input_graph {
     () => {
         #[derive(Deserialize)]
-        struct InputGraph {
+        struct InputType {
             a: Option<AllowedA>,
             b: Option<AllowedB>,
         }
@@ -102,7 +102,7 @@ fn test_toml() {
     x = 3
     y = 4
     ";
-    let i: InputGraph = toml::from_str(toml).unwrap();
+    let i: InputType = toml::from_str(toml).unwrap();
     assert!(i.a.is_some());
     assert!(i.b.is_none());
 
@@ -129,7 +129,7 @@ fn test_extended_toml() {
     [a.MyA]
     data = "foobar"
     "#;
-    let i: InputGraph = toml::from_str(toml).unwrap();
+    let i: InputType = toml::from_str(toml).unwrap();
     assert!(i.a.is_some());
     assert!(i.b.is_none());
 
@@ -165,7 +165,7 @@ fn test_doubly_extended_toml() {
     [a.MyOtherA]
     datum = nan
     "#;
-    let i: InputGraph = toml::from_str(toml).unwrap();
+    let i: InputType = toml::from_str(toml).unwrap();
     assert!(i.a.is_some());
     assert!(i.b.is_none());
 
