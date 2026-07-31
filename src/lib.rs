@@ -59,10 +59,22 @@ impl TraitA for isAlsoA {}
 impl TraitB for isB {}
 impl TraitB for isAlsoB {}
 
-#[derive(Deserialize)]
-enum AllowedA {
-    isA(isA),
-    isAlsoA(isAlsoA),
+macro_rules! make_allowed_a {
+    () => {
+        #[derive(Deserialize)]
+        enum AllowedA {
+            isA(isA),
+            isAlsoA(isAlsoA),
+        }
+    };
+    ($tag:tt , $N:ident) => {
+        #[derive(Deserialize)]
+        enum AllowedA {
+            isA(isA),
+            isAlsoA(isAlsoA),
+            $tag($N),
+        }
+    };
 }
 
 #[derive(Deserialize)]
@@ -71,14 +83,20 @@ enum AllowedB {
     isAlsoB(isAlsoB),
 }
 
-#[derive(Deserialize)]
-struct InputGraph {
-    a: Option<AllowedA>,
-    b: Option<AllowedB>,
+macro_rules! make_input_graph {
+    () => {
+        #[derive(Deserialize)]
+        struct InputGraph {
+            a: Option<AllowedA>,
+            b: Option<AllowedB>,
+        }
+    };
 }
 
 #[test]
 fn test_toml() {
+    make_allowed_a!();
+    make_input_graph!();
     let toml = r"
     [a.isA]
     x = 3
@@ -92,6 +110,36 @@ fn test_toml() {
         Some(a) => match a {
             AllowedA::isA(_) => (),
             AllowedA::isAlsoA(_) => panic!("wrong variant"),
+        },
+        None => panic!("expected Some(...)"),
+    }
+}
+
+#[test]
+fn test_extended_toml() {
+    #[derive(Deserialize)]
+    struct MyA {
+        data: String,
+    }
+    impl TraitA for MyA {}
+
+    make_allowed_a!(MyA, MyA);
+    make_input_graph!();
+    let toml = r#"
+    [a.MyA]
+    data = "foobar"
+    "#;
+    let i: InputGraph = toml::from_str(toml).unwrap();
+    assert!(i.a.is_some());
+    assert!(i.b.is_none());
+
+    match i.a {
+        Some(a) => match a {
+            AllowedA::isA(_) => panic!("wrong variant"),
+            AllowedA::isAlsoA(_) => panic!("wrong variant"),
+            AllowedA::MyA(a) => {
+                assert_eq!(a.data, "foobar")
+            }
         },
         None => panic!("expected Some(...)"),
     }
